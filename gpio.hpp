@@ -23,13 +23,161 @@
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace dmitigr::gpio {
 
-class Chip_info {
+class Edge_event final {
+public:
+  ~Edge_event()
+  {
+    if (is_owner_ && handle_) {
+      gpiod_edge_event_free(handle_);
+      handle_ = nullptr;
+    }
+  }
+
+  Edge_event(const Edge_event& rhs)
+    : is_owner_{true}
+    , handle_{gpiod_edge_event_copy(rhs.handle_)}
+  {
+    if (!handle_)
+      throw std::runtime_error{"cannot copy the edge event object"};
+  }
+
+  Edge_event& operator=(const Edge_event& rhs)
+  {
+    Edge_event tmp{rhs};
+    swap(tmp);
+    return *this;
+  }
+
+  Edge_event(Edge_event&& rhs) noexcept
+    : is_owner_{rhs.is_owner_}
+    , handle_{rhs.handle_}
+  {
+    rhs.handle_ = nullptr;
+  }
+
+  Edge_event& operator=(Edge_event&& rhs) noexcept
+  {
+    Edge_event tmp{std::move(rhs)};
+    swap(tmp);
+    return *this;
+  }
+
+  void swap(Edge_event& other) noexcept
+  {
+    using std::swap;
+    swap(is_owner_, other.is_owner_);
+    swap(handle_, other.handle_);
+  }
+
+  gpiod_edge_event_type type() const noexcept
+  {
+    return gpiod_edge_event_get_event_type(handle_);
+  }
+
+  std::chrono::nanoseconds timestamp() const noexcept
+  {
+    return std::chrono::nanoseconds{gpiod_edge_event_get_timestamp_ns(handle_)};
+  }
+
+  unsigned line_offset() const noexcept
+  {
+    return gpiod_edge_event_get_line_offset(handle_);
+  }
+
+  unsigned long global_seqno() const noexcept
+  {
+    return gpiod_edge_event_get_global_seqno(handle_);
+  }
+
+  unsigned long line_seqno() const noexcept
+  {
+    return gpiod_edge_event_get_line_seqno(handle_);
+  }
+
+private:
+  friend class Edge_event_buffer;
+  bool is_owner_;
+  gpiod_edge_event* handle_;
+
+  explicit Edge_event(gpiod_edge_event* const handle) noexcept
+    : is_owner_{false}
+    , handle_{handle}
+  {
+    assert(handle_);
+  }
+};
+
+// -----------------------------------------------------------------------------
+
+class Edge_event_buffer final {
+public:
+  ~Edge_event_buffer()
+  {
+    if (handle_) {
+      gpiod_edge_event_buffer_free(handle_);
+      handle_ = nullptr;
+    }
+  }
+
+  explicit Edge_event_buffer(const std::size_t capacity)
+    : handle_{gpiod_edge_event_buffer_new(capacity)}
+  {
+    if (!handle_)
+      throw std::runtime_error{"cannot create edge event buffer"};
+  }
+
+  Edge_event_buffer(const Edge_event_buffer&) = delete;
+  Edge_event_buffer& operator=(const Edge_event_buffer&) = delete;
+
+  Edge_event_buffer(Edge_event_buffer&& rhs) noexcept
+    : handle_{rhs.handle_}
+  {
+    rhs.handle_ = nullptr;
+  }
+
+  Edge_event_buffer& operator=(Edge_event_buffer&& rhs) noexcept
+  {
+    Edge_event_buffer tmp{std::move(rhs)};
+    swap(tmp);
+    return *this;
+  }
+
+  void swap(Edge_event_buffer& other) noexcept
+  {
+    using std::swap;
+    swap(handle_, other.handle_);
+  }
+
+  std::size_t capacity() const noexcept
+  {
+    return gpiod_edge_event_buffer_get_capacity(handle_);
+  }
+
+  std::size_t event_count() const noexcept
+  {
+    return gpiod_edge_event_buffer_get_num_events(handle_);
+  }
+
+  Edge_event event(const unsigned long index) const noexcept
+  {
+    return Edge_event{gpiod_edge_event_buffer_get_event(handle_, index)};
+  }
+
+private:
+  friend class Line_request;
+  gpiod_edge_event_buffer* handle_;
+};
+
+// -----------------------------------------------------------------------------
+
+class Chip_info final {
 public:
   ~Chip_info()
   {
@@ -42,20 +190,20 @@ public:
   Chip_info(const Chip_info& rhs) = delete;
   Chip_info& operator=(const Chip_info&) = delete;
 
-  Chip_info(Chip_info&& rhs)
+  Chip_info(Chip_info&& rhs) noexcept
     : handle_{rhs.handle_}
   {
     rhs.handle_ = nullptr;
   }
 
-  Chip_info& operator=(Chip_info&& rhs)
+  Chip_info& operator=(Chip_info&& rhs) noexcept
   {
     Chip_info tmp{std::move(rhs)};
     swap(tmp);
     return *this;
   }
 
-  void swap(Chip_info& other)
+  void swap(Chip_info& other) noexcept
   {
     using std::swap;
     swap(handle_, other.handle_);
@@ -80,14 +228,16 @@ private:
   friend class Chip;
   gpiod_chip_info* handle_;
 
-  explicit Chip_info(gpiod_chip_info* const handle)
+  explicit Chip_info(gpiod_chip_info* const handle) noexcept
     : handle_{handle}
   {
     assert(handle_);
   }
 };
 
-class Line_info {
+// -----------------------------------------------------------------------------
+
+class Line_info final {
 public:
   ~Line_info()
   {
@@ -112,21 +262,21 @@ public:
     return *this;
   }
 
-  Line_info(Line_info&& rhs)
+  Line_info(Line_info&& rhs) noexcept
     : is_owner_{rhs.is_owner_}
     , handle_{rhs.handle_}
   {
     rhs.handle_ = nullptr;
   }
 
-  Line_info& operator=(Line_info&& rhs)
+  Line_info& operator=(Line_info&& rhs) noexcept
   {
     Line_info tmp{std::move(rhs)};
     swap(tmp);
     return *this;
   }
 
-  void swap(Line_info& other)
+  void swap(Line_info& other) noexcept
   {
     using std::swap;
     swap(is_owner_, other.is_owner_);
@@ -201,7 +351,7 @@ private:
   bool is_owner_;
   gpiod_line_info* handle_;
 
-  explicit Line_info(gpiod_line_info* const handle, const bool is_owner = true)
+  explicit Line_info(gpiod_line_info* const handle, const bool is_owner) noexcept
     : is_owner_{is_owner}
     , handle_{handle}
   {
@@ -209,7 +359,9 @@ private:
   }
 };
 
-class Info_event {
+// -----------------------------------------------------------------------------
+
+class Info_event final {
 public:
   ~Info_event()
   {
@@ -222,20 +374,20 @@ public:
   Info_event(const Info_event&) = delete;
   Info_event& operator=(const Info_event&) = delete;
 
-  Info_event(Info_event&& rhs)
+  Info_event(Info_event&& rhs) noexcept
     : Info_event{rhs.handle_}
   {
     rhs.handle_ = nullptr;
   }
 
-  Info_event& operator=(Info_event&& rhs)
+  Info_event& operator=(Info_event&& rhs) noexcept
   {
     Info_event tmp{std::move(rhs)};
     swap(tmp);
     return *this;
   }
 
-  void swap(Info_event& other)
+  void swap(Info_event& other) noexcept
   {
     using std::swap;
     swap(handle_, other.handle_);
@@ -251,132 +403,25 @@ public:
     return std::chrono::nanoseconds{gpiod_info_event_get_timestamp_ns(handle_)};
   }
 
-  const Line_info& line_info() const noexcept
+  Line_info line_info() const noexcept
   {
-    return line_info_;
+    return Line_info{gpiod_info_event_get_line_info(handle_), false};
   }
 
 private:
   friend class Chip;
   gpiod_info_event* handle_;
-  Line_info line_info_;
 
-  explicit Info_event(gpiod_info_event* const handle)
-    : handle_{handle}
-    , line_info_{gpiod_info_event_get_line_info(handle_), false}
-  {
-    assert(handle_);
-  }
-};
-
-class Line_request {
-public:
-  ~Line_request()
-  {
-    if (handle_) {
-      gpiod_line_request_release(handle_);
-      handle_ = nullptr;
-    }
-  }
-
-  Line_request(const Line_request&) = delete;
-  Line_request& operator=(const Line_request&) = delete;
-
-  Line_request(Line_request&& rhs)
-    : handle_{rhs.handle_}
-  {
-    rhs.handle_ = nullptr;
-  }
-
-  Line_request& operator=(Line_request&& rhs)
-  {
-    Line_request tmp{std::move(rhs)};
-    swap(tmp);
-    return *this;
-  }
-
-  void swap(Line_request& other)
-  {
-    using std::swap;
-    swap(handle_, other.handle_);
-  }
-
-private:
-  friend class Chip;
-  gpiod_line_request* handle_;
-
-  explicit Line_request(gpiod_line_request* const handle)
+  explicit Info_event(gpiod_info_event* const handle) noexcept
     : handle_{handle}
   {
     assert(handle_);
   }
 };
 
-class Request_config {
-public:
-  ~Request_config()
-  {
-    if (handle_) {
-      gpiod_request_config_free(handle_);
-      handle_ = nullptr;
-    }
-  }
+// -----------------------------------------------------------------------------
 
-  Request_config()
-    : handle_{gpiod_request_config_new()}
-  {
-    if (!handle_)
-      throw std::runtime_error{"cannot create request config object"};
-  }
-
-  Request_config(const Request_config&) = delete;
-  Request_config& operator=(const Request_config&) = delete;
-
-  Request_config(Request_config&& rhs)
-    : handle_{rhs.handle_}
-  {
-    rhs.handle_ = nullptr;
-  }
-
-  Request_config& operator=(Request_config&& rhs)
-  {
-    Request_config tmp{std::move(rhs)};
-    swap(tmp);
-    return *this;
-  }
-
-  void swap(Request_config& other)
-  {
-    using std::swap;
-    swap(handle_, other.handle_);
-  }
-
-  void set_consumer(const std::string& name)
-  {
-    gpiod_request_config_set_consumer(handle_, name.c_str());
-  }
-
-  std::string consumer() const noexcept
-  {
-    return gpiod_request_config_get_consumer(handle_);
-  }
-
-  void set_event_buffer_size(const std::size_t size)
-  {
-    gpiod_request_config_set_event_buffer_size(handle_, size);
-  }
-
-  std::size_t event_buffer_size() const noexcept
-  {
-    return gpiod_request_config_get_event_buffer_size(handle_);
-  }
-
-private:
-  friend class Chip;
-  mutable gpiod_request_config* handle_;
-};
-
-class Line_settings {
+class Line_settings final {
 public:
   ~Line_settings()
   {
@@ -404,20 +449,20 @@ public:
     return *this;
   }
 
-  Line_settings(Line_settings&& rhs)
+  Line_settings(Line_settings&& rhs) noexcept
     : handle_{rhs.handle_}
   {
     rhs.handle_ = nullptr;
   }
 
-  Line_settings& operator=(Line_settings&& rhs)
+  Line_settings& operator=(Line_settings&& rhs) noexcept
   {
     Line_settings tmp{std::move(rhs)};
     swap(tmp);
     return *this;
   }
 
-  void swap(Line_settings& other)
+  void swap(Line_settings& other) noexcept
   {
     using std::swap;
     swap(handle_, other.handle_);
@@ -430,7 +475,7 @@ public:
 
   void set_direction(const gpiod_line_direction direction)
   {
-    if (gpiod_line_settings_set_direction(handle_, direction) == -1)
+    if (gpiod_line_settings_set_direction(handle_, direction))
       throw std::runtime_error{"cannot set line direction"};
   }
 
@@ -441,7 +486,7 @@ public:
 
   void set_edge_detection(const gpiod_line_edge edge)
   {
-    if (gpiod_line_settings_set_edge_detection(handle_, edge) == -1)
+    if (gpiod_line_settings_set_edge_detection(handle_, edge))
       throw std::runtime_error{"cannot set edge detection"};
   }
 
@@ -452,7 +497,7 @@ public:
 
   void set_bias(const gpiod_line_bias bias)
   {
-    if (gpiod_line_settings_set_bias(handle_, bias) == -1)
+    if (gpiod_line_settings_set_bias(handle_, bias))
       throw std::runtime_error{"cannot set bias"};
   }
 
@@ -463,7 +508,7 @@ public:
 
   void set_drive(const gpiod_line_drive drive)
   {
-    if (gpiod_line_settings_set_drive(handle_, drive) == -1)
+    if (gpiod_line_settings_set_drive(handle_, drive))
       throw std::runtime_error{"cannot set drive"};
   }
 
@@ -477,7 +522,7 @@ public:
     gpiod_line_settings_set_active_low(handle_, active);
   }
 
-  bool active_low() const noexcept
+  bool is_active_low() const noexcept
   {
     return gpiod_line_settings_get_active_low(handle_);
   }
@@ -494,7 +539,7 @@ public:
 
   void set_event_clock(const gpiod_line_clock event_clock)
   {
-    if (gpiod_line_settings_set_event_clock(handle_, event_clock) == -1)
+    if (gpiod_line_settings_set_event_clock(handle_, event_clock))
       throw std::runtime_error{"cannot set event clock"};
   }
 
@@ -505,7 +550,7 @@ public:
 
   void set_output_value(const gpiod_line_value value)
   {
-    if (gpiod_line_settings_set_output_value(handle_, value) == -1)
+    if (gpiod_line_settings_set_output_value(handle_, value))
       throw std::runtime_error{"cannot set output value"};
   }
 
@@ -516,7 +561,7 @@ public:
 
 private:
   friend class Line_config;
-  mutable gpiod_line_settings* handle_;
+  gpiod_line_settings* handle_;
 
   explicit Line_settings(gpiod_line_settings* const handle)
     : handle_{handle}
@@ -526,7 +571,9 @@ private:
   }
 };
 
-class Line_config {
+// -----------------------------------------------------------------------------
+
+class Line_config final {
 public:
   ~Line_config()
   {
@@ -546,20 +593,20 @@ public:
   Line_config(const Line_config&) = delete;
   Line_config& operator=(const Line_config&) = delete;
 
-  Line_config(Line_config&& rhs)
+  Line_config(Line_config&& rhs) noexcept
     : handle_{rhs.handle_}
   {
     rhs.handle_ = nullptr;
   }
 
-  Line_config& operator=(Line_config&& rhs)
+  Line_config& operator=(Line_config&& rhs) noexcept
   {
     Line_config tmp{std::move(rhs)};
     swap(tmp);
     return *this;
   }
 
-  void swap(Line_config& other)
+  void swap(Line_config& other) noexcept
   {
     using std::swap;
     swap(handle_, other.handle_);
@@ -593,7 +640,7 @@ public:
       throw std::runtime_error{"cannot set output values for a number of lines"};
   }
 
-  std::size_t configured_line_offsets_count() const noexcept
+  std::size_t configured_line_offset_count() const noexcept
   {
     return gpiod_line_config_get_num_configured_offsets(handle_);
   }
@@ -609,12 +656,217 @@ public:
 
 private:
   friend class Chip;
-  mutable gpiod_line_config* handle_;
+  friend class Line_request;
+  gpiod_line_config* handle_;
 };
 
 // -----------------------------------------------------------------------------
 
-class Chip {
+class Line_request final {
+public:
+  ~Line_request()
+  {
+    if (handle_) {
+      gpiod_line_request_release(handle_);
+      handle_ = nullptr;
+    }
+  }
+
+  Line_request(const Line_request&) = delete;
+  Line_request& operator=(const Line_request&) = delete;
+
+  Line_request(Line_request&& rhs) noexcept
+    : handle_{rhs.handle_}
+  {
+    rhs.handle_ = nullptr;
+  }
+
+  Line_request& operator=(Line_request&& rhs) noexcept
+  {
+    Line_request tmp{std::move(rhs)};
+    swap(tmp);
+    return *this;
+  }
+
+  void swap(Line_request& other) noexcept
+  {
+    using std::swap;
+    swap(handle_, other.handle_);
+  }
+
+  std::size_t requested_line_count() const noexcept
+  {
+    return gpiod_line_request_get_num_requested_lines(handle_);
+  }
+
+  std::vector<unsigned> requested_offsets(const std::size_t max_size) const
+  {
+    std::vector<unsigned> result(max_size);
+    const auto size = gpiod_line_request_get_requested_offsets(handle_,
+      result.data(), result.size());
+    result.resize(size);
+    return result;
+  }
+
+  gpiod_line_value value(const unsigned offset) const noexcept
+  {
+    return gpiod_line_request_get_value(handle_, offset);
+  }
+
+  std::vector<gpiod_line_value> values(const std::vector<unsigned>& offsets) const
+  {
+    std::vector<gpiod_line_value> result(offsets.size());
+    const int r{gpiod_line_request_get_values_subset(handle_, offsets.size(),
+        offsets.data(), result.data())};
+    if (r)
+      fill(result.begin(), result.end(), GPIOD_LINE_VALUE_ERROR);
+    return result;
+  }
+
+  std::vector<gpiod_line_value> values() const
+  {
+    std::vector<gpiod_line_value> result(requested_line_count());
+    const int r{gpiod_line_request_get_values(handle_, result.data())};
+    if (r)
+      fill(result.begin(), result.end(), GPIOD_LINE_VALUE_ERROR);
+    return result;
+  }
+
+  void set_value(const unsigned offset, const gpiod_line_value value)
+  {
+    if (gpiod_line_request_set_value(handle_, offset, value))
+      throw std::runtime_error{"cannot set the value of a single requested line,"
+        " offset " + std::to_string(offset)};
+  }
+
+  void set_values(const std::vector<unsigned>& offsets,
+    const std::vector<gpiod_line_value>& values)
+  {
+    if (offsets.size() != values.size())
+      throw std::invalid_argument{"cannot set values: offsets and values not consistent"};
+    if (gpiod_line_request_set_values_subset(handle_, offsets.size(),
+        offsets.data(), values.data()))
+      throw std::runtime_error{"cannot set the values of a subset of requested lines"};
+  }
+
+  void set_values(const std::vector<gpiod_line_value>& values)
+  {
+    if (gpiod_line_request_set_values(handle_, values.data()))
+      throw std::runtime_error{"cannot set the values of all lines associated with a request"};
+  }
+
+  void reconfigure_lines(const Line_config& config)
+  {
+    if (gpiod_line_request_reconfigure_lines(handle_, config.handle_))
+      throw std::runtime_error{"cannot update the configuration of lines"
+        " associated with a line request"};
+  }
+
+  int file_descriptor() const noexcept
+  {
+    return gpiod_line_request_get_fd(handle_);
+  }
+
+  int wait_edge_events(const std::chrono::nanoseconds timeout)
+  {
+    const int result{gpiod_line_request_wait_edge_events(handle_, timeout.count())};
+    if (result == -1) // check for -1 is important
+      throw std::runtime_error{"cannot wait for edge events on any of the requested lines"};
+    return result;
+  }
+
+  std::size_t read_edge_events(Edge_event_buffer& result, const std::size_t max_count)
+  {
+    if (result.capacity() < max_count)
+      throw std::invalid_argument{"cannot get edge events: invalid max count"};
+
+    const int result_size{gpiod_line_request_read_edge_events(handle_,
+        result.handle_, max_count)};
+    if (result_size == -1) // check for -1 is important
+      throw std::runtime_error{"cannot read a number of edge events from a line request"};
+    return result_size;
+  }
+
+private:
+  friend class Chip;
+  gpiod_line_request* handle_;
+
+  explicit Line_request(gpiod_line_request* const handle) noexcept
+    : handle_{handle}
+  {
+    assert(handle_);
+  }
+};
+
+// -----------------------------------------------------------------------------
+
+class Request_config final {
+public:
+  ~Request_config()
+  {
+    if (handle_) {
+      gpiod_request_config_free(handle_);
+      handle_ = nullptr;
+    }
+  }
+
+  Request_config()
+    : handle_{gpiod_request_config_new()}
+  {
+    if (!handle_)
+      throw std::runtime_error{"cannot create request config object"};
+  }
+
+  Request_config(const Request_config&) = delete;
+  Request_config& operator=(const Request_config&) = delete;
+
+  Request_config(Request_config&& rhs) noexcept
+    : handle_{rhs.handle_}
+  {
+    rhs.handle_ = nullptr;
+  }
+
+  Request_config& operator=(Request_config&& rhs) noexcept
+  {
+    Request_config tmp{std::move(rhs)};
+    swap(tmp);
+    return *this;
+  }
+
+  void swap(Request_config& other) noexcept
+  {
+    using std::swap;
+    swap(handle_, other.handle_);
+  }
+
+  void set_consumer(const std::string& name)
+  {
+    gpiod_request_config_set_consumer(handle_, name.c_str());
+  }
+
+  std::string consumer() const noexcept
+  {
+    return gpiod_request_config_get_consumer(handle_);
+  }
+
+  void set_event_buffer_size(const std::size_t size)
+  {
+    gpiod_request_config_set_event_buffer_size(handle_, size);
+  }
+
+  std::size_t event_buffer_size() const noexcept
+  {
+    return gpiod_request_config_get_event_buffer_size(handle_);
+  }
+
+private:
+  friend class Chip;
+  gpiod_request_config* handle_;
+};
+
+// -----------------------------------------------------------------------------
+
+class Chip final {
 public:
   ~Chip()
   {
@@ -625,28 +877,29 @@ public:
   }
 
   explicit Chip(const std::filesystem::path& path)
+    : handle_{gpiod_chip_open(path.string().c_str())}
   {
-    if ( !(handle_ = gpiod_chip_open(path.string().c_str())))
+    if (!handle_)
       throw std::runtime_error{"cannot open gpiochip device file"};
   }
 
   Chip(const Chip&) = delete;
   Chip& operator=(const Chip&) = delete;
 
-  Chip(Chip&& rhs)
+  Chip(Chip&& rhs) noexcept
     : handle_{rhs.handle_}
   {
     rhs.handle_ = nullptr;
   }
 
-  Chip& operator=(Chip&& rhs)
+  Chip& operator=(Chip&& rhs) noexcept
   {
     Chip tmp{std::move(rhs)};
     swap(tmp);
     return *this;
   }
 
-  void swap(Chip& other)
+  void swap(Chip& other) noexcept
   {
     using std::swap;
     swap(handle_, other.handle_);
@@ -654,7 +907,7 @@ public:
 
   std::filesystem::path path() const
   {
-    return {gpiod_chip_get_path(handle_)};
+    return gpiod_chip_get_path(handle_);
   }
 
   Chip_info chip_info()
@@ -668,17 +921,18 @@ public:
   Line_info line_info(const unsigned offset)
   {
     if (auto* const info = gpiod_chip_get_line_info(handle_, offset); !info)
-      throw std::runtime_error{"cannot get information about the chip"};
+      throw std::runtime_error{"cannot get a snapshot of information about a line"};
     else
-      return Line_info{info};
+      return Line_info{info, true};
   }
 
   Line_info watch_line_info(const unsigned offset)
   {
     if (auto* const info = gpiod_chip_watch_line_info(handle_, offset); !info)
-      throw std::runtime_error{"cannot get information about the chip"};
+      throw std::runtime_error{"cannot get a snapshot of the status of a line and"
+        " start watching it for future changes"};
     else
-      return Line_info{info};
+      return Line_info{info, true};
   }
 
   void unwatch_line_info(const unsigned offset)
@@ -687,7 +941,7 @@ public:
       throw std::runtime_error{"cannot stop watching a line for status changes"};
   }
 
-  int fd() const noexcept
+  int file_descriptor() const noexcept
   {
     return gpiod_chip_get_fd(handle_);
   }
@@ -695,7 +949,7 @@ public:
   int wait_info_event(const std::chrono::nanoseconds timeout)
   {
     const int result{gpiod_chip_wait_info_event(handle_, timeout.count())};
-    if (result == -1)
+    if (result == -1) // check for -1 is important
       throw std::runtime_error{"cannot wait info event"};
     return result;
   }
@@ -708,10 +962,10 @@ public:
       return Info_event{result};
   }
 
-  int line_offset_from_name(const std::string& name)
+  unsigned line_offset_from_name(const std::string& name)
   {
     const int result{gpiod_chip_get_line_offset_from_name(handle_, name.c_str())};
-    if (result == -1)
+    if (result == -1) // check for -1 is important
       throw std::runtime_error{"cannot map a line's name \""+name+"\" to its"
         " offset within the chip"};
     return result;
@@ -720,16 +974,33 @@ public:
   Line_request line_request(const Request_config& request_config,
     const Line_config& line_config)
   {
-    auto* const result = gpiod_chip_request_lines(handle_,
-      request_config.handle_, line_config.handle_);
-    if (!result)
-      throw std::runtime_error{"cannot request a set of lines for exclusive usage"};
-    return Line_request{result};
+    return line_request(request_config.handle_, line_config.handle_);
+  }
+
+  Line_request line_request(const Line_config& line_config)
+  {
+    return line_request(nullptr, line_config.handle_);
   }
 
 private:
   gpiod_chip* handle_;
+
+  Line_request line_request(gpiod_request_config* const req_cfg,
+    gpiod_line_config* const line_cfg)
+  {
+    auto* const result = gpiod_chip_request_lines(handle_, req_cfg, line_cfg);
+    if (!result)
+      throw std::runtime_error{"cannot request a set of lines for exclusive usage"};
+    return Line_request{result};
+  }
 };
+
+// -----------------------------------------------------------------------------
+
+inline bool is_gpiochip_device(const std::filesystem::path& path)
+{
+  return gpiod_is_gpiochip_device(path.string().c_str());
+}
 
 } // namespace dmitigr::gpio
 
