@@ -40,6 +40,8 @@ public:
     }
   }
 
+  Edge_event() = default;
+
   Edge_event(const Edge_event& rhs)
     : is_owner_{true}
     , handle_{gpiod_edge_event_copy(rhs.handle_)}
@@ -103,8 +105,8 @@ public:
 
 private:
   friend class Edge_event_buffer;
-  bool is_owner_;
-  gpiod_edge_event* handle_;
+  bool is_owner_{};
+  gpiod_edge_event* handle_{};
 
   explicit Edge_event(gpiod_edge_event* const handle) noexcept
     : is_owner_{false}
@@ -125,6 +127,8 @@ public:
       handle_ = nullptr;
     }
   }
+
+  Edge_event_buffer() = default;
 
   explicit Edge_event_buffer(const std::size_t capacity)
     : handle_{gpiod_edge_event_buffer_new(capacity)}
@@ -172,7 +176,7 @@ public:
 
 private:
   friend class Line_request;
-  gpiod_edge_event_buffer* handle_;
+  gpiod_edge_event_buffer* handle_{};
 };
 
 // -----------------------------------------------------------------------------
@@ -186,6 +190,8 @@ public:
       handle_ = nullptr;
     }
   }
+
+  Chip_info() = default;
 
   Chip_info(const Chip_info& rhs) = delete;
   Chip_info& operator=(const Chip_info&) = delete;
@@ -226,7 +232,7 @@ public:
 
 private:
   friend class Chip;
-  gpiod_chip_info* handle_;
+  gpiod_chip_info* handle_{};
 
   explicit Chip_info(gpiod_chip_info* const handle) noexcept
     : handle_{handle}
@@ -246,6 +252,8 @@ public:
       handle_ = nullptr;
     }
   }
+
+  Line_info() = default;
 
   Line_info(const Line_info& rhs)
     : is_owner_{true}
@@ -348,8 +356,8 @@ public:
 private:
   friend class Chip;
   friend class Info_event;
-  bool is_owner_;
-  gpiod_line_info* handle_;
+  bool is_owner_{};
+  gpiod_line_info* handle_{};
 
   explicit Line_info(gpiod_line_info* const handle, const bool is_owner) noexcept
     : is_owner_{is_owner}
@@ -370,6 +378,8 @@ public:
       handle_ = nullptr;
     }
   }
+
+  Info_event() = default;
 
   Info_event(const Info_event&) = delete;
   Info_event& operator=(const Info_event&) = delete;
@@ -410,7 +420,7 @@ public:
 
 private:
   friend class Chip;
-  gpiod_info_event* handle_;
+  gpiod_info_event* handle_{};
 
   explicit Info_event(gpiod_info_event* const handle) noexcept
     : handle_{handle}
@@ -672,6 +682,8 @@ public:
     }
   }
 
+  Line_request() = default;
+
   Line_request(const Line_request&) = delete;
   Line_request& operator=(const Line_request&) = delete;
 
@@ -789,7 +801,7 @@ public:
 
 private:
   friend class Chip;
-  gpiod_line_request* handle_;
+  gpiod_line_request* handle_{};
 
   explicit Line_request(gpiod_line_request* const handle) noexcept
     : handle_{handle}
@@ -875,6 +887,8 @@ public:
       handle_ = nullptr;
     }
   }
+
+  Chip() = default;
 
   explicit Chip(const std::filesystem::path& path)
     : handle_{gpiod_chip_open(path.string().c_str())}
@@ -983,7 +997,7 @@ public:
   }
 
 private:
-  gpiod_chip* handle_;
+  gpiod_chip* handle_{};
 
   Line_request line_request(gpiod_request_config* const req_cfg,
     gpiod_line_config* const line_cfg)
