@@ -635,7 +635,7 @@ public:
       throw std::runtime_error{"cannot add line settings for a set of offsets"};
   }
 
-  Line_settings line_settings(const unsigned offset)
+  Line_settings line_settings(const unsigned offset) const
   {
     auto* const result = gpiod_line_config_get_line_settings(handle_, offset);
     if (!result)
@@ -650,12 +650,12 @@ public:
       throw std::runtime_error{"cannot set output values for a number of lines"};
   }
 
-  std::size_t configured_line_offset_count() const noexcept
+  std::size_t line_offset_count() const noexcept
   {
     return gpiod_line_config_get_num_configured_offsets(handle_);
   }
 
-  std::vector<unsigned> configured_offsets(const std::size_t max_size)
+  std::vector<unsigned> offsets(const std::size_t max_size) const
   {
     std::vector<unsigned> result(max_size);
     const auto size = gpiod_line_config_get_configured_offsets(handle_,
@@ -706,12 +706,12 @@ public:
     swap(handle_, other.handle_);
   }
 
-  std::size_t requested_line_count() const noexcept
+  std::size_t line_count() const noexcept
   {
     return gpiod_line_request_get_num_requested_lines(handle_);
   }
 
-  std::vector<unsigned> requested_offsets(const std::size_t max_size) const
+  std::vector<unsigned> offsets(const std::size_t max_size) const
   {
     std::vector<unsigned> result(max_size);
     const auto size = gpiod_line_request_get_requested_offsets(handle_,
@@ -737,7 +737,7 @@ public:
 
   std::vector<gpiod_line_value> values() const
   {
-    std::vector<gpiod_line_value> result(requested_line_count());
+    std::vector<gpiod_line_value> result(line_count());
     const int r{gpiod_line_request_get_values(handle_, result.data())};
     if (r)
       fill(result.begin(), result.end(), GPIOD_LINE_VALUE_ERROR);
@@ -767,7 +767,7 @@ public:
       throw std::runtime_error{"cannot set the values of all lines associated with a request"};
   }
 
-  void reconfigure_lines(const Line_config& config)
+  void reconfigure(const Line_config& config)
   {
     if (gpiod_line_request_reconfigure_lines(handle_, config.handle_))
       throw std::runtime_error{"cannot update the configuration of lines"
@@ -924,7 +924,7 @@ public:
     return gpiod_chip_get_path(handle_);
   }
 
-  Chip_info chip_info()
+  Chip_info chip_info() const
   {
     if (auto* const info = gpiod_chip_get_info(handle_); !info)
       throw std::runtime_error{"cannot get information about the chip"};
@@ -932,7 +932,7 @@ public:
       return Chip_info{info};
   }
 
-  Line_info line_info(const unsigned offset)
+  Line_info line_info(const unsigned offset) const
   {
     if (auto* const info = gpiod_chip_get_line_info(handle_, offset); !info)
       throw std::runtime_error{"cannot get a snapshot of information about a line"};
@@ -968,7 +968,7 @@ public:
     return result;
   }
 
-  Info_event info_event()
+  Info_event info_event() const
   {
     if (auto* const result = gpiod_chip_read_info_event(handle_); !result)
       throw std::runtime_error{"cannot read a single line status change event from chip"};
@@ -976,7 +976,7 @@ public:
       return Info_event{result};
   }
 
-  unsigned line_offset_from_name(const std::string& name)
+  unsigned line_offset_from_name(const std::string& name) const
   {
     const int result{gpiod_chip_get_line_offset_from_name(handle_, name.c_str())};
     if (result == -1) // check for -1 is important
@@ -986,12 +986,12 @@ public:
   }
 
   Line_request line_request(const Request_config& request_config,
-    const Line_config& line_config)
+    const Line_config& line_config) const
   {
     return line_request(request_config.handle_, line_config.handle_);
   }
 
-  Line_request line_request(const Line_config& line_config)
+  Line_request line_request(const Line_config& line_config) const
   {
     return line_request(nullptr, line_config.handle_);
   }
@@ -1000,7 +1000,7 @@ private:
   gpiod_chip* handle_{};
 
   Line_request line_request(gpiod_request_config* const req_cfg,
-    gpiod_line_config* const line_cfg)
+    gpiod_line_config* const line_cfg) const
   {
     auto* const result = gpiod_chip_request_lines(handle_, req_cfg, line_cfg);
     if (!result)
