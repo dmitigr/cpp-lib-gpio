@@ -17,13 +17,14 @@
 #ifndef DMITIGR_GPIO_HPP
 #define DMITIGR_GPIO_HPP
 
+#include "exceptions.hpp"
+
 #include <gpiod.h>
 
 #include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <filesystem>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -47,7 +48,7 @@ public:
     , handle_{gpiod_edge_event_copy(rhs.handle_)}
   {
     if (!handle_)
-      throw std::runtime_error{"cannot copy the edge event object"};
+      throw Exception{"cannot copy the edge event object"};
   }
 
   Edge_event& operator=(const Edge_event& rhs)
@@ -134,7 +135,7 @@ public:
     : handle_{gpiod_edge_event_buffer_new(capacity)}
   {
     if (!handle_)
-      throw std::runtime_error{"cannot create edge event buffer"};
+      throw Exception{"cannot create edge event buffer"};
   }
 
   Edge_event_buffer(const Edge_event_buffer&) = delete;
@@ -260,7 +261,7 @@ public:
     , handle_{gpiod_line_info_copy(rhs.handle_)}
   {
     if (!handle_)
-      throw std::runtime_error{"cannot copy line info object"};
+      throw Exception{"cannot copy line info object"};
   }
 
   Line_info& operator=(const Line_info& rhs)
@@ -449,7 +450,7 @@ public:
     : handle_{gpiod_line_settings_copy(rhs.handle_)}
   {
     if (!handle_)
-      throw std::runtime_error{"cannot copy line settings"};
+      throw Exception{"cannot copy line settings"};
   }
 
   Line_settings& operator=(const Line_settings& rhs)
@@ -486,7 +487,7 @@ public:
   void set_direction(const gpiod_line_direction direction)
   {
     if (gpiod_line_settings_set_direction(handle_, direction))
-      throw std::runtime_error{"cannot set line direction"};
+      throw Exception{"cannot set line direction"};
   }
 
   gpiod_line_direction direction() const noexcept
@@ -497,7 +498,7 @@ public:
   void set_edge_detection(const gpiod_line_edge edge)
   {
     if (gpiod_line_settings_set_edge_detection(handle_, edge))
-      throw std::runtime_error{"cannot set edge detection"};
+      throw Exception{"cannot set edge detection"};
   }
 
   gpiod_line_edge edge_detection() const noexcept
@@ -508,7 +509,7 @@ public:
   void set_bias(const gpiod_line_bias bias)
   {
     if (gpiod_line_settings_set_bias(handle_, bias))
-      throw std::runtime_error{"cannot set bias"};
+      throw Exception{"cannot set bias"};
   }
 
   gpiod_line_bias bias() const noexcept
@@ -519,7 +520,7 @@ public:
   void set_drive(const gpiod_line_drive drive)
   {
     if (gpiod_line_settings_set_drive(handle_, drive))
-      throw std::runtime_error{"cannot set drive"};
+      throw Exception{"cannot set drive"};
   }
 
   gpiod_line_drive drive() const noexcept
@@ -550,7 +551,7 @@ public:
   void set_event_clock(const gpiod_line_clock event_clock)
   {
     if (gpiod_line_settings_set_event_clock(handle_, event_clock))
-      throw std::runtime_error{"cannot set event clock"};
+      throw Exception{"cannot set event clock"};
   }
 
   gpiod_line_clock event_clock() const noexcept
@@ -561,7 +562,7 @@ public:
   void set_output_value(const gpiod_line_value value)
   {
     if (gpiod_line_settings_set_output_value(handle_, value))
-      throw std::runtime_error{"cannot set output value"};
+      throw Exception{"cannot set output value"};
   }
 
   gpiod_line_value output_value() const noexcept
@@ -577,7 +578,7 @@ private:
     : handle_{handle}
   {
     if (!handle_)
-      throw std::runtime_error{"cannot create line settings object"};
+      throw Exception{"cannot create line settings object"};
   }
 };
 
@@ -597,7 +598,7 @@ public:
     : handle_{gpiod_line_config_new()}
   {
     if (!handle_)
-      throw std::runtime_error{"cannot create line config object"};
+      throw Exception{"cannot create line config object"};
   }
 
   Line_config(const Line_config&) = delete;
@@ -632,14 +633,14 @@ public:
   {
     if (gpiod_line_config_add_line_settings(handle_, offsets.data(),
         offsets.size(), settings.handle_))
-      throw std::runtime_error{"cannot add line settings for a set of offsets"};
+      throw Exception{"cannot add line settings for a set of offsets"};
   }
 
   Line_settings line_settings(const unsigned offset) const
   {
     auto* const result = gpiod_line_config_get_line_settings(handle_, offset);
     if (!result)
-      throw std::runtime_error{"cannot get line settings for offset "
+      throw Exception{"cannot get line settings for offset "
         + std::to_string(offset)};
     return Line_settings{result};
   }
@@ -647,7 +648,7 @@ public:
   void set_output_values(const std::vector<gpiod_line_value>& values)
   {
     if (gpiod_line_config_set_output_values(handle_, values.data(), values.size()))
-      throw std::runtime_error{"cannot set output values for a number of lines"};
+      throw Exception{"cannot set output values for a number of lines"};
   }
 
   std::size_t line_offset_count() const noexcept
@@ -747,7 +748,7 @@ public:
   void set_value(const unsigned offset, const gpiod_line_value value)
   {
     if (gpiod_line_request_set_value(handle_, offset, value))
-      throw std::runtime_error{"cannot set the value of a single requested line,"
+      throw Exception{"cannot set the value of a single requested line,"
         " offset " + std::to_string(offset)};
   }
 
@@ -755,22 +756,22 @@ public:
     const std::vector<gpiod_line_value>& values)
   {
     if (offsets.size() != values.size())
-      throw std::invalid_argument{"cannot set values: offsets and values not consistent"};
+      throw Exception{"cannot set values: offsets and values not consistent"};
     if (gpiod_line_request_set_values_subset(handle_, offsets.size(),
         offsets.data(), values.data()))
-      throw std::runtime_error{"cannot set the values of a subset of requested lines"};
+      throw Exception{"cannot set the values of a subset of requested lines"};
   }
 
   void set_values(const std::vector<gpiod_line_value>& values)
   {
     if (gpiod_line_request_set_values(handle_, values.data()))
-      throw std::runtime_error{"cannot set the values of all lines associated with a request"};
+      throw Exception{"cannot set the values of all lines associated with a request"};
   }
 
   void reconfigure(const Line_config& config)
   {
     if (gpiod_line_request_reconfigure_lines(handle_, config.handle_))
-      throw std::runtime_error{"cannot update the configuration of lines"
+      throw Exception{"cannot update the configuration of lines"
         " associated with a line request"};
   }
 
@@ -783,19 +784,19 @@ public:
   {
     const int result{gpiod_line_request_wait_edge_events(handle_, timeout.count())};
     if (result == -1) // check for -1 is important
-      throw std::runtime_error{"cannot wait for edge events on any of the requested lines"};
+      throw Exception{"cannot wait for edge events on any of the requested lines"};
     return result;
   }
 
   std::size_t read_edge_events(Edge_event_buffer& result, const std::size_t max_count)
   {
     if (result.capacity() < max_count)
-      throw std::invalid_argument{"cannot get edge events: invalid max count"};
+      throw Exception{"cannot get edge events: invalid max count"};
 
     const int result_size{gpiod_line_request_read_edge_events(handle_,
         result.handle_, max_count)};
     if (result_size == -1) // check for -1 is important
-      throw std::runtime_error{"cannot read a number of edge events from a line request"};
+      throw Exception{"cannot read a number of edge events from a line request"};
     return result_size;
   }
 
@@ -826,7 +827,7 @@ public:
     : handle_{gpiod_request_config_new()}
   {
     if (!handle_)
-      throw std::runtime_error{"cannot create request config object"};
+      throw Exception{"cannot create request config object"};
   }
 
   Request_config(const Request_config&) = delete;
@@ -894,7 +895,7 @@ public:
     : handle_{gpiod_chip_open(path.string().c_str())}
   {
     if (!handle_)
-      throw std::runtime_error{"cannot open gpiochip device file"};
+      throw Exception{"cannot open gpiochip device file"};
   }
 
   Chip(const Chip&) = delete;
@@ -927,7 +928,7 @@ public:
   Chip_info chip_info() const
   {
     if (auto* const info = gpiod_chip_get_info(handle_); !info)
-      throw std::runtime_error{"cannot get information about the chip"};
+      throw Exception{"cannot get information about the chip"};
     else
       return Chip_info{info};
   }
@@ -935,7 +936,7 @@ public:
   Line_info line_info(const unsigned offset) const
   {
     if (auto* const info = gpiod_chip_get_line_info(handle_, offset); !info)
-      throw std::runtime_error{"cannot get a snapshot of information about a line"};
+      throw Exception{"cannot get a snapshot of information about a line"};
     else
       return Line_info{info, true};
   }
@@ -943,7 +944,7 @@ public:
   Line_info watch_line_info(const unsigned offset)
   {
     if (auto* const info = gpiod_chip_watch_line_info(handle_, offset); !info)
-      throw std::runtime_error{"cannot get a snapshot of the status of a line and"
+      throw Exception{"cannot get a snapshot of the status of a line and"
         " start watching it for future changes"};
     else
       return Line_info{info, true};
@@ -952,7 +953,7 @@ public:
   void unwatch_line_info(const unsigned offset)
   {
     if (gpiod_chip_unwatch_line_info(handle_, offset))
-      throw std::runtime_error{"cannot stop watching a line for status changes"};
+      throw Exception{"cannot stop watching a line for status changes"};
   }
 
   int file_descriptor() const noexcept
@@ -964,14 +965,14 @@ public:
   {
     const int result{gpiod_chip_wait_info_event(handle_, timeout.count())};
     if (result == -1) // check for -1 is important
-      throw std::runtime_error{"cannot wait info event"};
+      throw Exception{"cannot wait info event"};
     return result;
   }
 
   Info_event info_event() const
   {
     if (auto* const result = gpiod_chip_read_info_event(handle_); !result)
-      throw std::runtime_error{"cannot read a single line status change event from chip"};
+      throw Exception{"cannot read a single line status change event from chip"};
     else
       return Info_event{result};
   }
@@ -980,7 +981,7 @@ public:
   {
     const int result{gpiod_chip_get_line_offset_from_name(handle_, name.c_str())};
     if (result == -1) // check for -1 is important
-      throw std::runtime_error{"cannot map a line's name \""+name+"\" to its"
+      throw Exception{"cannot map a line's name \""+name+"\" to its"
         " offset within the chip"};
     return result;
   }
@@ -1004,7 +1005,7 @@ private:
   {
     auto* const result = gpiod_chip_request_lines(handle_, req_cfg, line_cfg);
     if (!result)
-      throw std::runtime_error{"cannot request a set of lines for exclusive usage"};
+      throw Exception{"cannot request a set of lines for exclusive usage"};
     return Line_request{result};
   }
 };

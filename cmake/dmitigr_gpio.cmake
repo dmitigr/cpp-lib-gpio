@@ -32,7 +32,7 @@ set(dmitigr_gpio_headers
 # Dependencies
 # ------------------------------------------------------------------------------
 
-set(dmitigr_libs_gpio_deps)
+set(dmitigr_libs_gpio_deps base)
 
 # ------------------------------------------------------------------------------
 # Tests
