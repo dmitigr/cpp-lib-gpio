@@ -26,6 +26,7 @@ dmitigr_libs_set_library_info(gpio 1 0 0 "GPIO library")
 
 set(dmitigr_gpio_headers
   gpio.hpp
+  exceptions.hpp
   )
 
 # ------------------------------------------------------------------------------
