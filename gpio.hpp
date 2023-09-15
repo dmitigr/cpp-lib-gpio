@@ -18,6 +18,7 @@
 #define DMITIGR_GPIO_HPP
 
 #include "exceptions.hpp"
+#include "version.hpp"
 
 #include <gpiod.h>
 
