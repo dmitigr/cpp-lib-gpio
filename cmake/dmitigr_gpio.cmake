@@ -27,7 +27,7 @@ dmitigr_libs_set_library_info(gpio 1 0 0 "GPIO library")
 set(dmitigr_gpio_headers
   gpio.hpp
   exceptions.hpp
-  )
+)
 
 # ------------------------------------------------------------------------------
 # Dependencies
@@ -35,13 +35,11 @@ set(dmitigr_gpio_headers
 
 set(dmitigr_libs_gpio_deps base)
 
-if(DMITIGR_LIBS_GPIOD)
-  find_package(Gpiod REQUIRED)
-  list(APPEND dmitigr_gpio_target_include_directories_public "${Gpiod_INCLUDE_DIRS}")
-  list(APPEND dmitigr_gpio_target_include_directories_interface "${Gpiod_INCLUDE_DIRS}")
-  list(APPEND dmitigr_gpio_target_link_libraries_public ${Gpiod_LIBRARIES})
-  list(APPEND dmitigr_gpio_target_link_libraries_interface ${Gpiod_LIBRARIES})
-endif()
+find_package(Gpiod REQUIRED)
+list(APPEND dmitigr_gpio_target_include_directories_public "${Gpiod_INCLUDE_DIRS}")
+list(APPEND dmitigr_gpio_target_include_directories_interface "${Gpiod_INCLUDE_DIRS}")
+list(APPEND dmitigr_gpio_target_link_libraries_public ${Gpiod_LIBRARIES})
+list(APPEND dmitigr_gpio_target_link_libraries_interface ${Gpiod_LIBRARIES})
 
 # ------------------------------------------------------------------------------
 # Tests
