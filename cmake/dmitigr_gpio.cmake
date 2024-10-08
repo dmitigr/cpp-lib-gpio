@@ -35,11 +35,15 @@ set(dmitigr_gpio_headers
 
 set(dmitigr_libs_gpio_deps base)
 
-find_package(Gpiod REQUIRED)
-list(APPEND dmitigr_gpio_target_include_directories_public "${Gpiod_INCLUDE_DIRS}")
-list(APPEND dmitigr_gpio_target_include_directories_interface "${Gpiod_INCLUDE_DIRS}")
-list(APPEND dmitigr_gpio_target_link_libraries_public ${Gpiod_LIBRARIES})
-list(APPEND dmitigr_gpio_target_link_libraries_interface ${Gpiod_LIBRARIES})
+find_package(Gpiod)
+if(Gpiod_FOUND)
+  list(APPEND dmitigr_gpio_target_include_directories_public "${Gpiod_INCLUDE_DIRS}")
+  list(APPEND dmitigr_gpio_target_include_directories_interface "${Gpiod_INCLUDE_DIRS}")
+  list(APPEND dmitigr_gpio_target_link_libraries_public ${Gpiod_LIBRARIES})
+  list(APPEND dmitigr_gpio_target_link_libraries_interface ${Gpiod_LIBRARIES})
+else()
+  message(WARNING "Gpiod not found, relying on manual linkage")
+endif()
 
 # ------------------------------------------------------------------------------
 # Tests
